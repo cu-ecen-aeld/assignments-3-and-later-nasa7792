@@ -11,4 +11,4 @@ writer: writer.c
 
 .PHONY: clean
 clean:
-	rm -f *.o writer
+	rm -f *.o
