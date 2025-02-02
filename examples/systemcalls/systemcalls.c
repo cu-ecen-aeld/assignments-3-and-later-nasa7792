@@ -1,4 +1,5 @@
 #include "systemcalls.h"
+#include<errno.h>
 /**
  * @param cmd the command to execute with system()
  * @return true if the command in @param cmd was executed
@@ -27,6 +28,7 @@ bool do_system(const char *cmd)
     initiate_syslog();
     int status_code = system(cmd);
     //if cmd is NULL we just return with fasle
+    //refrence https://man7.org/linux/man-pages/man3/system.3.html#top_of_page
     if (cmd == NULL)
     {
         syslog(LOG_ERR, "Given command is NULL!");

@@ -48,7 +48,7 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     make -j6 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs   
 
 fi
-
+#copy Image file from boot folder post build to OUTDIR
 echo "Adding the Image in outdir"
     cp "${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image" "${OUTDIR}/"
 
@@ -89,14 +89,15 @@ cd "${OUTDIR}/rootfs"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
-# TODO: Add library dependencies to rootfs
+# TODO: Add library dependencies to rootfs 
+#get path for sys root of host 
 HOST_SYS_ROOT=$(aarch64-none-linux-gnu-gcc  -print-sysroot)
 cp "$HOST_SYS_ROOT/lib/ld-linux-aarch64.so.1" "${OUTDIR}/rootfs/lib/"
 cp "$HOST_SYS_ROOT/lib64/libc.so.6" "${OUTDIR}/rootfs/lib64/"
 cp "$HOST_SYS_ROOT/lib64/libresolv.so.2" "${OUTDIR}/rootfs/lib64/"
 cp "$HOST_SYS_ROOT/lib64/libm.so.6" "${OUTDIR}/rootfs/lib64/"
 
-# TODO: Make device nodes
+# TODO: Make device nodes to interact on the qemu
 sudo mknod -m 666 dev/null c 1 3 
 sudo mknod -m 666 dev/console c 5 1 
 
