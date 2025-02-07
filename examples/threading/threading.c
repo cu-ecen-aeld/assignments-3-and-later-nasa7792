@@ -54,6 +54,7 @@ bool start_thread_obtaining_mutex(pthread_t *thread, pthread_mutex_t *mutex,int 
     bool thread_creation_stat=pthread_create(thread,NULL,threadfunc,ptr_thread_data);
     if(thread_creation_stat!=0){
         ERROR_LOG("failed to create thread");
+        free(ptr_thread_data);
         return false;
     }
     DEBUG_LOG("thread created successfully");
