@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #authour- Nalin Saxena nasa7792
 
 #this file is the implementation for writer.sh as per the requirements specified in coursera
