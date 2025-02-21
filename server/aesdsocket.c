@@ -1,6 +1,5 @@
 
 // 1. Opens a stream socket bound to port 9000, (there are two types of sockets udp based tcp based we are using tcp based)
-
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -19,9 +18,10 @@
 #define FAILURE -1
 #define BACKLOG 10 // how many pending connections queue will hold
 #define PORT_NUMBER "9000"
-#define FILE_LOG_PATH "/var/tmp/aesdsocketdata"
+#define FILE_LOG_PATH "/var/tmp/aesdsocketdata" //path to output file
 
 int socket_fd;
+//signal handler
 void signal_handler(int sig_num)
 {
     syslog(LOG_USER, "Caught Signal : %s\n", strsignal(sig_num));
@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
     hints.ai_flags = AI_PASSIVE;
     char client_ip[INET6_ADDRSTRLEN];
     int run_as_daemon = 0;
+    //check if application should be run as daemon
     if (argc > 1 && (strcmp(argv[1], "-d") == 0))
     {
         printf("Daemon?\n");
@@ -88,6 +89,7 @@ int main(int argc, char *argv[])
         return FAILURE;
     }
     freeaddrinfo(res);
+    //check daemon mode
     if (run_as_daemon)
     {
         pid_t daemon_pid = fork();
@@ -102,7 +104,7 @@ int main(int argc, char *argv[])
             syslog(LOG_INFO, "Exiting parent process!");
             exit(EXIT_SUCCESS);
         }
-        // value is 0
+        // value is 0 meaning chuld is successfully created
         else
         {
             if (setsid() == -1)
@@ -126,7 +128,7 @@ int main(int argc, char *argv[])
         syslog(LOG_ERR, "Failed to bind to socket, error: %s", strerror(errno));
         return FAILURE;
     }
-
+//accept connections in a true loop
     while (1)
     {
         addr_size = sizeof client_addr;
