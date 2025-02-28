@@ -8,3 +8,6 @@ aesd-build
 test.sh.log
 server/valgrind-out.txt
 server/aesdsocket
+aesdsocket
+server/aesdsocket
+server/valgrind-out.txt
