@@ -1,7 +1,13 @@
 #use flags for wall and werror all warnings will be treated as errors
-all : aesdsocket
-aesdsocket : aesdsocket.c
-	$(CC) -Wall -Werror -o aesdsocket aesdsocket.c
-.PHONY : clean
+#yocto ld flags added
+CC ?= $(CROSS_COMPILE)gcc
+CFLAGS ?= -g -Wall -Werror
+TARGET ?= aesdsocket
+LDFLAGS ?= -lpthread -lrt
+all: $(TARGET)
+$(TARGET): aesdsocket.c
+	$(CC) $(CFLAGS) $^ -o $@ $(INCLUDES) $(LDFLAGS)
+
+.PHONY: clean
 clean:
-	rm -f aesdsocket
+	-rm -f $(TARGET)
