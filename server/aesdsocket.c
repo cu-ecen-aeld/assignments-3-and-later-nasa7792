@@ -274,8 +274,9 @@ int main(int argc, char *argv[])
             // change to root
             if(chdir("/")!=0){
                  syslog(LOG_ERR, "chdir root failed");
+                   closelog();
                 exit(FAILURE);
-                closelog();
+              
             }
             // redirect stdout 0,1,2 to dev null
             int dev_null = open("/dev/null", O_RDWR);
