@@ -2,11 +2,11 @@
 #use already provided load and unloaded scripts
 case "$1" in 
     start)
-    echo "starting aesdchar application v2"
+    echo "starting aesdchar application v2.1"
     aesdchar_load
     ;;
     stop)
-    echo "stopping aesdchar application v2"
+    echo "stopping aesdchar application v2.1"
     aesdchar_unload
     ;;
     *)
