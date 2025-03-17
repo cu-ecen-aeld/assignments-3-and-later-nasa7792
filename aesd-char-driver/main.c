@@ -158,6 +158,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (new_ptr == NULL)
     {
         PDEBUG("OUT OF MEMORY \n");
+        kfree(dev->single_data_write.buffptr);
         retval = -ENOMEM;
         goto unlock_mutex;
     }
