@@ -176,7 +176,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         if (temp_ptr != NULL)
         {
             PDEBUG("freeing ptr returned by aesd_circular_buffer_add_entry\n");
-        printk("Hi");
          kfree(temp_ptr);
         }
         // clear the temporary buffer instance and expect another write command
