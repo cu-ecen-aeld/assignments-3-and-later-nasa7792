@@ -86,9 +86,9 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     {
         rem_bytes = count;
     }
-    // copy from kernel space to user space
+    // copy from kernel space to user space this call wil return how many bytes werent written
     int fail_copied_bytes = copy_to_user(buf, search_val->buffptr + offset, rem_bytes);
-    // partial copy
+    // partial copy 
     if (fail_copied_bytes)
     {
         retval = -EFAULT;
@@ -163,20 +163,21 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
     // assign bufferptr to new ptr
     dev->single_data_write.buffptr = new_ptr;
-    char *offset = dev->single_data_write.buffptr + dev->single_data_write.size;
+    char *offset = dev->single_data_write.buffptr + dev->single_data_write.size; 
+    //append and accumulate write commands and check for new line later
     memcpy(offset, usr_space_ptr, num_copy);
     dev->single_data_write.size += num_copy;
     retval = num_copy;
-    // if we had encountered new line we will process
+    // if we had encountered new line we will process similar to aesd socket logic 
     if (new_line_pos != NULL)
     {
         struct aesd_buffer_entry *temp_ptr = aesd_circular_buffer_add_entry(&dev->buffer, &dev->single_data_write);
         if (temp_ptr != NULL)
         {
-            PDEBUG("freeing memory\n");
+            PDEBUG("freeing ptr returned by aesd_circular_buffer_add_entry\n");
             kfree(temp_ptr);
         }
-        // clear the spot in buffer
+        // clear the temporary buffer instance and expect another write command
         dev->single_data_write.buffptr = NULL;
         dev->single_data_write.size = 0;
     }
@@ -255,7 +256,8 @@ void aesd_cleanup_module(void)
         {
             kfree(curr_element->buffptr);
         }
-    }
+    }//destroy mutex
+    mutex_destroy(&aesd_device.buffer_mutex);
     unregister_chrdev_region(devno, 1);
 }
 
