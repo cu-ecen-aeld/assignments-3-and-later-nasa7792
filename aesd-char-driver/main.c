@@ -88,7 +88,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     }
     // copy from kernel space to user space this call wil return how many bytes werent written
     int fail_copied_bytes = copy_to_user(buf, search_val->buffptr + offset, rem_bytes);
-    // partial copy 
+    // partial copy
     if (fail_copied_bytes)
     {
         retval = -EFAULT;
@@ -154,7 +154,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         goto mem_free;
     }
     // call realloc
-    char *new_ptr = (char *)krealloc(dev->single_data_write.buffptr, dev->single_data_write.size + num_copy , GFP_KERNEL);
+    char *new_ptr = (char *)krealloc(dev->single_data_write.buffptr, dev->single_data_write.size + num_copy, GFP_KERNEL);
     if (new_ptr == NULL)
     {
         PDEBUG("OUT OF MEMORY \n");
@@ -163,12 +163,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
     // assign bufferptr to new ptr
     dev->single_data_write.buffptr = new_ptr;
-    char *offset = dev->single_data_write.buffptr + dev->single_data_write.size; 
-    //append and accumulate write commands and check for new line later
+    char *offset = dev->single_data_write.buffptr + dev->single_data_write.size;
+    // append and accumulate write commands and check for new line later
     memcpy(offset, usr_space_ptr, num_copy);
     dev->single_data_write.size += num_copy;
     retval = num_copy;
-    // if we had encountered new line we will process similar to aesd socket logic 
+    // if we had encountered new line we will process similar to aesd socket logic
     if (new_line_pos != NULL)
     {
         struct aesd_buffer_entry *temp_ptr = aesd_circular_buffer_add_entry(&dev->buffer, &dev->single_data_write);
@@ -184,7 +184,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 unlock_mutex:
     mutex_unlock(&dev->buffer_mutex);
 mem_free:
-    kfree(usr_space_ptr);
+    if (usr_space_ptr != NULL)
+    {
+        kfree(usr_space_ptr);
+    }
     return retval;
 }
 struct file_operations aesd_fops = {
@@ -256,7 +259,7 @@ void aesd_cleanup_module(void)
         {
             kfree(curr_element->buffptr);
         }
-    }//destroy mutex
+    } // destroy mutex
     mutex_destroy(&aesd_device.buffer_mutex);
     unregister_chrdev_region(devno, 1);
 }
