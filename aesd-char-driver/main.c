@@ -172,12 +172,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     // if we had encountered new line we will process similar to aesd socket logic
     if (new_line_pos != NULL)
     {
-        struct aesd_buffer_entry *temp_ptr = aesd_circular_buffer_add_entry(&dev->buffer, &dev->single_data_write);
+        char*temp_ptr = aesd_circular_buffer_add_entry(&dev->buffer, &dev->single_data_write);
         if (temp_ptr != NULL)
         {
             PDEBUG("freeing ptr returned by aesd_circular_buffer_add_entry\n");
-       printk("Hi");
-         //   kfree(temp_ptr);
+        printk("Hi");
+         kfree(temp_ptr);
         }
         // clear the temporary buffer instance and expect another write command
         dev->single_data_write.buffptr = NULL;
