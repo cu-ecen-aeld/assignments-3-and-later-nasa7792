@@ -19,7 +19,12 @@
 #define FAILURE -1
 #define BACKLOG 10 // how many pending connections queue will hold
 #define PORT_NUMBER "9000"
-#define FILE_LOG_PATH "/var/tmp/aesdsocketdata" // path to output file
+#define USE_AESD_CHAR_DEVICE 1
+#ifdef USE_AESD_CHAR_DEVICE
+    #define FILE_LOG_PATH "/dev/aesdchar"
+#else
+    #define FILE_LOG_PATH "/var/tmp/aesdsocketdata"
+#endif
 
 int socket_fd;
 bool sig_recv = false;
@@ -46,6 +51,7 @@ typedef struct thread_node
     next_ptr;
 } thread_node;
 
+#if !USE_AESD_CHAR_DEVICE
 void *append_timestamp_to_file(void *arg)
 {
     // written with the help of chatgpt for formatting in RFC 2822
@@ -89,6 +95,7 @@ void *append_timestamp_to_file(void *arg)
 
     return NULL;
 }
+#endif
 
 int thread_task(void *thread_args)
 {
@@ -292,11 +299,13 @@ int main(int argc, char *argv[])
         return FAILURE;
     }
 //start timestamp thread
+#if!USE_AESD_CHAR_DEVICE
     if (pthread_create(&timestamp_thread, NULL, append_timestamp_to_file, NULL) != 0)
     {
         syslog(LOG_ERR, "Failed to create timestamp thread");
         return FAILURE;
     }
+#endif
 //run till signal is recieved or error happens
     while (!terminate_main_thread && !sig_recv)
     {
@@ -358,8 +367,10 @@ int main(int argc, char *argv[])
             curr_ptr = itr_ptr;
         }
     }
+#if !USE_AESD_CHAR_DEVICE
     pthread_join(timestamp_thread, NULL);
     remove(FILE_LOG_PATH);
+#endif
     closelog();
     close(socket_fd);
 }
