@@ -14,6 +14,8 @@
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
+#include "../aesd-char-driver/aesd_ioctl.h"
 #include <sys/queue.h>
 #include <stdbool.h>
 #define FAILURE -1
@@ -21,9 +23,9 @@
 #define PORT_NUMBER "9000"
 #define USE_AESD_CHAR_DEVICE 1
 #ifdef USE_AESD_CHAR_DEVICE
-    #define FILE_LOG_PATH "/dev/aesdchar"
+#define FILE_LOG_PATH "/dev/aesdchar"
 #else
-    #define FILE_LOG_PATH "/var/tmp/aesdsocketdata"
+#define FILE_LOG_PATH "/var/tmp/aesdsocketdata"
 #endif
 
 int socket_fd;
@@ -103,7 +105,7 @@ int thread_task(void *thread_args)
     int new_fd = thread_info->thread_fd;
     // open a new file
     int error_status = 0;
-    int aux_fd_write = open(FILE_LOG_PATH, O_CREAT | O_WRONLY | O_APPEND, 0666);
+    int aux_fd_write = open(FILE_LOG_PATH, O_CREAT | O_APPEND | O_RDWR, S_IRWXU | S_IRGRP | S_IROTH);
     if (aux_fd_write == -1)
     {
         syslog(LOG_ERR, "Failed to open a new file");
@@ -111,7 +113,7 @@ int thread_task(void *thread_args)
         error_status = 1;
         return -1;
     }
-//below logic remains same as assignment 5
+    // below logic remains same as assignment 5
     int buffer_size = 1024;
     int total_bytes = 0;
     char *temp_buffer = (char *)malloc(buffer_size);
@@ -139,8 +141,27 @@ int thread_task(void *thread_args)
         }
         temp_buffer = new_buffer;
     }
+    // Check if input is an ioctl command
+    if (strncmp(temp_buffer, "AESDCHAR_IOCSEEKTO:", 19) == 0)
+    {
+        unsigned int X, Y;
+        if (sscanf(temp_buffer + 19, "%u,%u", &X, &Y) == 2)
+        {
+            struct aesd_seekto seek_params = {.write_cmd = X, .write_cmd_offset = Y};
+            syslog(LOG_INFO, "DETECTED IOCTL COMMAND: write_cmd=%u, offset=%u", X, Y);
+            if (ioctl(aux_fd_write, AESDCHAR_IOCSEEKTO, &seek_params) != 0)
+            {
+                syslog(LOG_ERR, "IOCTL failed: %s", strerror(errno));
+            }
+            else
+            {
+                syslog(LOG_INFO, "IOCTL operation successful");
+            }
+            goto read_stage;
+        }
+    }
     // new line happened
-    //use mutex for reads and wites
+    // use mutex for reads and wites
     pthread_mutex_lock(&mutex_socket);
     if (write(aux_fd_write, temp_buffer, total_bytes) != total_bytes)
     {
@@ -154,10 +175,11 @@ int thread_task(void *thread_args)
         return -1;
     }
     pthread_mutex_unlock(&mutex_socket);
-    close(aux_fd_write);
 
     // once a new line is appear we need to loop back to client
-    int aux_fd_read = open(FILE_LOG_PATH, O_RDONLY);
+    lseek(aux_fd_write, 0, SEEK_SET);
+read_stage:
+    int aux_fd_read = aux_fd_write;
     if (aux_fd_read == -1)
     {
         syslog(LOG_ERR, "Failed to open file to read");
@@ -167,7 +189,7 @@ int thread_task(void *thread_args)
         error_status = 1;
         return -1;
     }
-    lseek(aux_fd_read, 0, SEEK_SET);
+
     int bytes_read;
     pthread_mutex_lock(&mutex_socket); // lock before reading
     do
@@ -187,7 +209,7 @@ int thread_task(void *thread_args)
     close(aux_fd_read);
     close(new_fd);
     syslog(LOG_INFO, "Closeded connection from %s", thread_info->client_ip);
-    thread_info->is_thread_complete = true; //indicate thread executed to completion 
+    thread_info->is_thread_complete = true; // indicate thread executed to completion
     return error_status == 1 ? -1 : 0;
 }
 
@@ -279,11 +301,11 @@ int main(int argc, char *argv[])
                 closelog();
             }
             // change to root
-            if(chdir("/")!=0){
-                 syslog(LOG_ERR, "chdir root failed");
-                   closelog();
+            if (chdir("/") != 0)
+            {
+                syslog(LOG_ERR, "chdir root failed");
+                closelog();
                 exit(FAILURE);
-              
             }
             // redirect stdout 0,1,2 to dev null
             int dev_null = open("/dev/null", O_RDWR);
@@ -298,15 +320,15 @@ int main(int argc, char *argv[])
         syslog(LOG_ERR, "Failed to bind to socket, error: %s", strerror(errno));
         return FAILURE;
     }
-//start timestamp thread
-#if!USE_AESD_CHAR_DEVICE
+// start timestamp thread
+#if !USE_AESD_CHAR_DEVICE
     if (pthread_create(&timestamp_thread, NULL, append_timestamp_to_file, NULL) != 0)
     {
         syslog(LOG_ERR, "Failed to create timestamp thread");
         return FAILURE;
     }
 #endif
-//run till signal is recieved or error happens
+    // run till signal is recieved or error happens
     while (!terminate_main_thread && !sig_recv)
     {
         addr_size = sizeof client_addr;
