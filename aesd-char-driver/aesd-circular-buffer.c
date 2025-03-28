@@ -69,7 +69,7 @@ char *aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const 
      * TODO: implement per description
      */
     // perfrom input validations
-    char *temp = NULL;
+   const char *temp = NULL;
     if (buffer == NULL || add_entry == NULL)
         return temp;
 
