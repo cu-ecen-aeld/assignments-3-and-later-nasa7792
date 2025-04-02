@@ -16,6 +16,7 @@
 #include <linux/printk.h>
 #include <linux/types.h>
 #include <linux/cdev.h>
+#include "aesd_ioctl.h"
 #include <linux/fs.h> // file_operations
 #include "aesdchar.h"
 int aesd_major = 0; // use dynamic major
@@ -172,11 +173,11 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     // if we had encountered new line we will process similar to aesd socket logic
     if (new_line_pos != NULL)
     {
-        char*temp_ptr = aesd_circular_buffer_add_entry(&dev->buffer, &dev->single_data_write);
+        char *temp_ptr = aesd_circular_buffer_add_entry(&dev->buffer, &dev->single_data_write);
         if (temp_ptr != NULL)
         {
             PDEBUG("freeing ptr returned by aesd_circular_buffer_add_entry\n");
-         kfree(temp_ptr);
+            kfree(temp_ptr);
         }
         // clear the temporary buffer instance and expect another write command
         dev->single_data_write.buffptr = NULL;
@@ -191,12 +192,125 @@ mem_free:
     }
     return retval;
 }
+// code refrenced from  LDD chapter 6
+loff_t aesd_llseek(struct file *filp, loff_t off, int whence)
+{
+    loff_t newpos;
+    struct aesd_dev *dev = filp->private_data;
+    int total_bytes_size = 0, index = 0;  // Moved variable declarations
+
+    switch (whence)
+    {
+    case SEEK_SET: /* SEEK_SET */
+        newpos = off;
+        break;
+
+    case SEEK_CUR: /* SEEK_CUR */
+        newpos = filp->f_pos + off;
+        break;
+
+    case SEEK_END: /* SEEK_END */
+        if (mutex_lock_interruptible(&dev->buffer_mutex))
+        {
+            PDEBUG("FAILED TO ACQUIRE MUTEX!");
+            return -ERESTARTSYS;
+        }
+
+        struct aesd_buffer_entry *entry;
+        AESD_CIRCULAR_BUFFER_FOREACH(entry, &dev->buffer, index)
+        {
+            total_bytes_size += entry->size;
+        }
+        mutex_unlock(&dev->buffer_mutex);
+
+        newpos = total_bytes_size + off;
+
+        // Prevent seeking beyond valid range
+        if (newpos < 0)
+            return -EINVAL;
+
+        break;
+
+    default: /* can't happen */
+        return -EINVAL;
+    }
+
+    if (newpos < 0)
+        return -EINVAL;
+
+    filp->f_pos = newpos;
+    return newpos;
+}
+
+long aesd_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+
+    printk("in ioctl\n");
+    struct aesd_dev *dev = filp->private_data;
+    struct aesd_seekto seek_args;
+    int ret_val = 0;
+    if (cmd != AESDCHAR_IOCSEEKTO)
+    {
+        PDEBUG("INVALID COMMAND \n");
+        ret_val = -ENOTTY;
+        goto err_exit;
+    }
+
+    // need to Copy args from user to kernel space
+    if (copy_from_user(&seek_args, (struct aesd_seekto*) arg, sizeof(struct aesd_seekto)))
+    {
+        PDEBUG("unable to copy from user space\n");
+        ret_val = -EFAULT;
+        goto err_exit;
+    }
+    int command_num = seek_args.write_cmd;
+    command_num = (command_num + dev->buffer.out_offs) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    if (command_num > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
+    {
+        PDEBUG("command out of bounds\n");
+        ret_val = -EINVAL;
+        goto err_exit;
+    }
+
+    // also check if offset bigger than command size ?
+    if (seek_args.write_cmd_offset > dev->buffer.entry[command_num].size)
+    {
+        PDEBUG("offset value out of bounds\n");
+        ret_val = -EINVAL;
+        goto err_exit;
+    }
+
+    if (mutex_lock_interruptible(&dev->buffer_mutex))
+    {
+        ret_val = -ERESTARTSYS;
+        PDEBUG("FAILED TO ACQUIRE MUTEX!");
+       goto err_exit;
+    }
+    // we need to traveser to the command
+    int itr = dev->buffer.out_offs;
+    int byte_count = 0;
+    while (itr != command_num)
+    {
+        byte_count += dev->buffer.entry[itr].size;
+        itr = (itr + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    }
+    printk("ioctl  %d  %d  %d\n",byte_count + seek_args.write_cmd_offset,command_num,seek_args.write_cmd_offset);
+    filp->f_pos = byte_count + seek_args.write_cmd_offset;
+    PDEBUG("seeked file pointer to %d\n", filp->f_pos);
+    mutex_unlock(&dev->buffer_mutex);
+err_exit:
+    return ret_val;
+}
+
+
 struct file_operations aesd_fops = {
     .owner = THIS_MODULE,
     .read = aesd_read,
     .write = aesd_write,
     .open = aesd_open,
     .release = aesd_release,
+    .llseek = aesd_llseek,
+    .unlocked_ioctl = aesd_unlocked_ioctl,
 };
 
 static int aesd_setup_cdev(struct aesd_dev *dev)
